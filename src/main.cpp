@@ -29,47 +29,47 @@ PubSubClient client(espClient);
 
 
 void setup_wifi() {
-	delay(10);
-	// We start by connecting to a WiFi network
-	Serial.println();
-	Serial.print("Connecting to ");
-	Serial.println(ssid);
+  delay(10);
+  // We start by connecting to a WiFi network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
 
-	WiFi.persistent(false); // don't store the connection each time to save wear on the flash
+  WiFi.persistent(false); // don't store the connection each time to save wear on the flash
   WiFi.mode(WIFI_STA);
   WiFi.setOutputPower(10); // reduce RF output power, increase if it won't connect
 
-	WiFi.begin(ssid, password);
+  WiFi.begin(ssid, password);
 
-	while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED) {
     yield();
     Serial.print(".");
-	}
+  }
 
-	Serial.println("");
-	Serial.println("WiFi connected");
-	Serial.println("IP address: ");
-	Serial.println(WiFi.localIP());
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
   WiFi.setAutoReconnect(true);
 }
 
 void reconnect() {
-	// Loop until we're reconnected
-	while (!client.connected()) {
-		Serial.print("Attempting MQTT connection...");
-		// Attempt to connect
-		if (client.connect("ESP8266 temperature display")) {
-			Serial.println("connected");
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("ESP8266 temperature display")) {
+      Serial.println("connected");
       client.subscribe("Home/Temperature");
       client.subscribe("Home/Humidity");
-		} else {
-			Serial.print("failed, rc=");
-			Serial.print(client.state());
-			Serial.println(" try again in 5 seconds");
-			// Wait 5 seconds before retrying
-			delay(5000);
-		}
-	}
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
 }
 
 String lastTemp = "-";
@@ -187,8 +187,8 @@ const int frameCount = 1;
 void setup() {
   pinMode(WAKE_UP_PIN, INPUT_PULLUP);
 
-	Serial.begin(9600);
-	Serial.println("wow");
+  Serial.begin(9600);
+  Serial.println("wow");
 
   ui.setTargetFPS(30);
   ui.setFrames(frames, frameCount);
@@ -196,8 +196,8 @@ void setup() {
   ui.init();
   display.flipScreenVertically();
 
-	setup_wifi();
-	client.setServer(mqtt_server, 1883);
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
   client.setCallback(mqttCallback);
 }
 
