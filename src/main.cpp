@@ -1,3 +1,6 @@
+// Low-power code mostly taken over from the excellent example at
+// https://github.com/esp8266/Arduino/blob/e920564b8d6e8436f42ae6e48f40f67b42ab0d25/libraries/esp8266/examples/LowPowerDemo/LowPowerDemo.ino
+
 #include <Arduino.h>
 #include <Wire.h>
 #include <ESP8266WiFi.h>
@@ -13,6 +16,7 @@
 
 #define I2C_SDA 4
 #define I2C_SCL 5
+#define WAKE_UP_PIN 2
 
 SH1106Wire display(0x3c, I2C_SDA, I2C_SCL);
 OLEDDisplayUi ui ( &display );
@@ -23,6 +27,7 @@ const char* mqtt_server = MQTT_SERVER_IP;
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+
 void setup_wifi() {
 	delay(10);
 	// We start by connecting to a WiFi network
@@ -30,18 +35,22 @@ void setup_wifi() {
 	Serial.print("Connecting to ");
 	Serial.println(ssid);
 
-	WiFi.mode(WIFI_STA);
+	WiFi.persistent(false); // don't store the connection each time to save wear on the flash
+  WiFi.mode(WIFI_STA);
+  WiFi.setOutputPower(10); // reduce RF output power, increase if it won't connect
+
 	WiFi.begin(ssid, password);
 
 	while (WiFi.status() != WL_CONNECTED) {
-	delay(500);
-	Serial.print(".");
+    yield();
+    Serial.print(".");
 	}
 
 	Serial.println("");
 	Serial.println("WiFi connected");
 	Serial.println("IP address: ");
 	Serial.println(WiFi.localIP());
+  WiFi.setAutoReconnect(true);
 }
 
 void reconnect() {
@@ -176,6 +185,8 @@ FrameCallback frames[] = { tempFrame};
 const int frameCount = 1;
 
 void setup() {
+  pinMode(WAKE_UP_PIN, INPUT_PULLUP);
+
 	Serial.begin(9600);
 	Serial.println("wow");
 
@@ -190,6 +201,9 @@ void setup() {
   client.setCallback(mqttCallback);
 }
 
+const int wakeTime = 60000;
+long lastWakeUp = 0;
+
 void loop() {
   int remainingTimeBudget = ui.update();
   if (remainingTimeBudget > 0) {
@@ -202,5 +216,23 @@ void loop() {
     client.loop();
 
     delay(remainingTimeBudget);
+  }
+
+  long now = millis();
+  if (now - lastWakeUp > wakeTime) {
+    lastWakeUp = now;
+    Serial.println(F("\nEntering Forced Light Sleep..."));
+    Serial.flush();
+    display.displayOff();
+    WiFi.mode(WIFI_OFF);  // you must turn the modem off; using disconnect won't work
+    wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
+    gpio_pin_wakeup_enable(GPIO_ID_PIN(WAKE_UP_PIN), GPIO_PIN_INTR_LOLEVEL);
+    // only LOLEVEL or HILEVEL interrupts work, no edge, that's an SDK or CPU limitation
+    wifi_fpm_open();
+    wifi_fpm_do_sleep(0xFFFFFFF);  // only 0xFFFFFFF, any other value and it won't disconnect the RTC timer
+    delay(10);  // it goes to sleep during this delay() and waits for an interrupt
+    Serial.println(F("Woke up!"));  // the interrupt callback hits before this is executed*/
+    setup_wifi();
+    display.displayOn();
   }
 }
