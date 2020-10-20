@@ -65,7 +65,10 @@ void reconnect() {
 
 String lastTemp = "-";
 String lastHum = "-";
-int tempHist[12];
+
+const int tempHistLength = 13;
+const int historyInterval = 600;
+int tempHist[tempHistLength];
 int tempHistIdx = 0;
 int tempHistShift = -1;
 long lastHistoryStore = 0;
@@ -83,15 +86,15 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     lastTemp = msg;
 
     long now = millis();
-    if (now - lastHistoryStore > 60000) {
+    if (now - lastHistoryStore > historyInterval) {
       lastHistoryStore = now;
 
       if (tempHistShift >= 0) {
         tempHistShift = tempHistIdx;
       }
       tempHist[tempHistIdx++] = (payload[0] - '0') * 100 + (payload[1] - '0') * 10 + (payload[3] - '0');
-      if (tempHistIdx == 12) {
-        tempHistShift = 11;
+      if (tempHistIdx == tempHistLength) {
+        tempHistShift = tempHistLength - 1;
         tempHistIdx = 0;
       }
     }
@@ -129,19 +132,20 @@ void tempFrame(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16
   display->setFont(DejaVu_Sans_Mono_16);
   display->drawString(0, 0, lastTemp + " °C");
 
-  int minVal = getMinNotNull(tempHist, 10);
-  int maxVal = getMax(tempHist, 10);
+  int minVal = getMinNotNull(tempHist, tempHistLength);
+  int maxVal = getMax(tempHist, tempHistLength);
 
-  int lastXDev = map(maxVal, minVal, maxVal, 0, 10);
-  for (int i = 0; i < 12; i++) {
+  int lastXDeviation;
+  for (int i = 0; i < tempHistLength; i++) {
+  //for (int i = tempHistLength - 1; i >=0; i--) {
     int idx = i;
     if (tempHistShift >= 0) {
       idx = idx + tempHistShift;
     }
     // Serial.print(idx);
     // Serial.print("->");
-    if (idx > 11) {
-      idx = idx - 12;
+    if (idx > tempHistLength - 1) {
+      idx = idx - tempHistLength;
     }
 
     // Serial.print(idx);
@@ -150,9 +154,13 @@ void tempFrame(OLEDDisplay *display, OLEDDisplayUiState* state, int16_t x, int16
     if (val == 0) {
       continue;
     }
-    int xDev = map(val, minVal, maxVal, 0, 10);
-    display->drawLine(i * 10, 30 - lastXDev, i * 10 + 10, 30 - xDev);
-    lastXDev = xDev;
+    int xDeviation = map(val, minVal, maxVal, -5, 5);
+    if (i == 0) {
+      lastXDeviation = xDeviation;
+      continue;
+    }
+    display->drawLine((i - 1) * 10, 25 - lastXDeviation, (i - 1) * 10 + 10, 25 - xDeviation);
+    lastXDeviation = xDeviation;
   }
   // Serial.println();
 
